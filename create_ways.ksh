@@ -107,69 +107,6 @@ echo "segments_A: ${segments_A[@]}"
 echo "segments_B: ${segments_B[@]}"
 echo "segments_C: ${segments_C[@]}"
 
-# in which direction is the graph? CW or CCW?
-# in node order, are the sum of right-hand angles bigger or the sum of left-hand-angles?
-# if right-hand angles are bigger, it is CCW, else otherwise.
-#
-# how to calculate an angle? we have three points: center, last and forward
-# alpha = atn (Δy/Δx)
-
-#set -A segments_dx
-#set -A segments_dy
-#set -A segments_angle # angle from start position, positive value
-#for i in `seq 0 $(expr $len_segments - 1)`; do
-#  x1=${lons[$i]}
-#  y1=${lats[$i]}
-#  echo "<node id=\"9${i}99\" lat=\"$y1\" lon=\"$x1\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> debug.osm
-#  next=$(expr $i + 1)
-#  x2=${lons[$next]}
-#  y2=${lats[$next]}
-#  delta_x=$( echo "scale=19; $x2 - $x1" | bc -l)
-#  delta_y=$( echo "scale=19; $y2 - $y1" | bc -l)
-#  segments_dx=( ${segments_dx[@]} $delta_x )
-#  segments_dy=( ${segments_dy[@]} $delta_y )
-#
-#  # note: these angles are distorted by projection, do not correspond to e.g. mercartor! But they are linear, and therefore can be used for comparison
-#  angle=$( echo "scale=19; a ( $delta_y / $delta_x ) / a(1) * 45" | bc -l) 
-#
-#  # quadrants: needed for adjusting results from atan (1 = NE, 2 = NW, 3 = SW, 4 = SE
-#  quadrant=$( echo "scale=19; if ( $delta_y >= 0 ) { if ( $delta_x >= 0 ) {1} else {2} } else { if ( $delta_x >= 0 ) {4} else {3} }" | bc -l )
-#  if [ "$quadrant" == "2" ] || [ "$quadrant" == "3" ]; then
-#    angle=$( echo "180 + $angle" | bc -l )
-#  fi 
-#  if [ "$quadrant" == "4" ]; then
-#    angle=$( echo "360 + $angle" | bc -l )
-#  fi
-#  echo "$i: [$quadrant] $angle"
-#  segments_angle=( ${segments_angle[@]} $angle )
-#
-#  # angle between two vectors is acos ( (a1b1 + a2b2)/ sqrt ( ( a1²+a2²)(b1²+b2²) ) ) - derived from dot-product
-#  # a = last vector
-#  if [ "$i" != "0" ]; then # at first segment, we don't have a previous vector
-#    a1=${segments_dx[i-1]}
-#    a2=${segments_dy[i-1]}
-#    b1=$delta_x
-#    b2=$delta_y
-#    upper=$(( ($a1) * ($b1) + ($a2) * ($b2) ))
-#    lower=$(( (($a1) * ($a1) + ($a2) * ($a2)) * (($b1) * ($b1) + ($b2) * ($b2)) ))
-#    div=$(( upper / sqrt( lower ) ))
-#    dangle=$(( acos( div ) / atan(1)*45 ))
-#    echo "d-angle for $((i-1)) and $i: $dangle"
-#  fi
-#done
-#
-##last one
-#a1=${segments_dx[len_segments - 1]}
-#a2=${segments_dy[len_segments - 1]}
-#b1=${segments_dx[0]}
-#b2=${segments_dy[0]}
-#upper=$(( ($a1) * ($b1) + ($a2) * ($b2) ))
-#lower=$(( (($a1) * ($a1) + ($a2) * ($a2)) * (($b1) * ($b1) + ($b2) * ($b2)) ))
-#div=$(( upper / sqrt( lower ) ))
-#dangle=$(( acos( div ) / atan(1)*45 ))
-#echo "d-angle for $((len_segments - 1)) and 0: $dangle"
-
-
 new_node_counter=1000000000000
 for i_outer in `seq 0 $(expr $len - 4)`;do # outer loop. Start from 0, each node has n-3 connections, so with 0-start to 4
   echo "i_outer: $i_outer, node ${node_array[$i_outer]}"
@@ -216,7 +153,6 @@ for i_outer in `seq 0 $(expr $len - 4)`;do # outer loop. Start from 0, each node
       x=$(( ( $B2 * $C1 - $B1 * $C2 ) / $det ))
       y=$(( ( $A1 * $C2 - $A2 * $C1 ) / $det ))
 #      echo "x: $x, y: $y"
-#      echo "<node id=\"$i_outer$i_inner$i_segment\" lat=\"$y\" lon=\"$x\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"SteveC\"/>" >> debug.osm
       #min(x1,x2) ≤ x ≤ max(x1,x2) 
       if (( ($min_x < $x) && ($x < $max_x) && ($min_y < $y) && ($y < $max_y) && (${min_xs[$i_segment]} < $x) && ($x < ${max_xs[$i_segment]}) && (${min_ys[$i_segment]} < $y) && ($y < ${max_ys[$i_segment]})  )); then
 #        echo "<node id=\"$i_outer$i_inner${i_segment}00\" lat=\"$y\" lon=\"$x\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> debug.osm
@@ -234,20 +170,9 @@ for i_outer in `seq 0 $(expr $len - 4)`;do # outer loop. Start from 0, each node
       mlat=$(( (y1+y2)/2 ))
       echo "<node id=\"$(( ++new_node_counter ))\" lat=\"$mlat\" lon=\"$mlon\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"!${node_array[$i_outer]}!${node_array[$i_inner]}!\" />" >> $mnodesfile
 
-      echo "<node id=\"$new_node_counter\" lat=\"$mlat\" lon=\"$mlon\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> debug.osm
-
-#      if ! echo "<?xml version='1.0' encoding='UTF-8'?><osm version='0.6' generator='osmfilter 1.4.0'><node id='1' lat='$mlat' lon='$mlon' /></osm>" | osmconvert - -B=$polyfile |grep -q node; then
-#        crossing=1
-#      fi
+#      echo "<node id=\"$new_node_counter\" lat=\"$mlat\" lon=\"$mlon\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> debug.osm
     fi
 
-#    if [ "$crossing" == "0" ]; then
-#      echo "  <way id=\"${wayid}010${i_outer}0${i_inner}\" timestamp=\"2010-12-23T18:48:05Z\" changeset=\"1\" version=\"1\" uid=\"1\" user=\"polytrianguler\">" >> $outfile
-#      echo "    <nd ref=\"${node_array[$i_outer]}\"/>" >> $outfile
-#      echo "    <nd ref=\"${node_array[$i_inner]}\"/>" >> $outfile
-#      echo "    $waytags" >> $outfile
-#      echo "  </way>" >> $outfile
-#    fi
   done
 done 
 

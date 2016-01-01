@@ -56,4 +56,7 @@ vorverarbeitung:
       berechne von jedem punkt aus den Winkel der folgenden Linie
         schwierig, es würds tun, checken ob der Mittelpunkt innerhalb is
         oder: jeder punkt hat ja nur 2 linien weg, die haben einen winkel - der winkel der fraglichen muss innerhalb sein!
+      winkelding zu kompliziert...
+        nun mittelpunkte für alle fraglichen erzeugt, alles in ein file und dann mit einem rutsch mit osmconvert geht halbwegs schnell.
+
 

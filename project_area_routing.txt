@@ -1,0 +1,59 @@
+wie über areas routen?
+  MP's werden in OSRM überhaupt noch nicht geroutet!
+
+vorverarbeitung:
+  alle MPs als (geojson?) exportieren
+    alle rels type=MP und alle highway area=yes
+      osmfilter in.osm --keep=" ( highway= and area=yes ) or ( highway= and type=multipolygon ) " --keep-node-tags="all blubb=" -o=filterout.osm
+
+      trenne in einzelne entities
+        osmfilter filterout-all.osm  --drop-relations  -o=filterout-w_o_rel.osm
+        osmfilter filterout-w_o_rel.osm  --keep-ways="area=yes"  -o=filterout-areas.osm (lässt floating nodes über, aber egal)
+        grep "<way" filterout-areas.osm|cut -d'"' -f 2
+          4399905
+          35947200
+          35948391
+          132029126
+        osmfilter filterout-areas.osm --keep="@id=4399905"  -o=1.osm
+          da ist jetzt genau 1 way und seine nodes drin
+        neu:
+<way id="200000004399905" version="1" timestamp="2010-12-23T18:48:05Z" changeset="6748402" uid="69102" user="Mathbau">
+  <nd ref="$1">
+  <nd ref="$2">
+  <tag k="access" v="permissive"/>
+  ....
+  alle bis auf area
+</way>
+
+    NOK geojson in JOSM exportiert nur ways, keine MPs
+  für jeden Punkt verbindungen einfügen
+    bilde knotenpaare
+  alle rauslöschen, die außerhalb sind
+    notiere, welche knotenpaare die verbindung außerhalb haben
+    adde ways mit tags (ausg area und type=MP) der relation/
+
+  geometrie:
+    wenn er eine vorhandene AUSSEN-linie schneidet, weg
+    wenn sein Mittelpunkt außerhalb des Polygons liegt, weg
+
+  alle nodes mit gleichen koordinaten mergen -> braucht man garnet, wenn die ways nur als osm-objekt angelegt werden
+
+  versuch ein .poly file zu erstellen, um die ways dann mittels osmconvert drin/ausserhalb des polys zu lassen...
+    osm2poly.pl kann keine way-areas
+      okay selbstgeschrieben
+
+    osmconvert sf-lines.osm -B=sf.poly -o=sf-out.osm
+      haut scheinbar zufällig die nodes am Rand raus, die Ways bleiben alle erhalten :-/
+
+    osmosis --read-xml file="sf-lines.osm" --bounding-polygon file="sf.poly" --write-xml file="sf-osmosis.osm"
+      osmosis braucht version= etc in infile
+      haut scheinbar zufällig die nodes am Rand raus, die Ways bleiben alle erhalten :-/
+
+  bleibt wohl nur
+    alle mit schnittpunkten rausschmeißen -OK
+    alle die außerhalb sind mit Winkelding erfassen
+      gehe im (oder gegen) UZS vom Startpunkt der Kontur aus
+      berechne von jedem punkt aus den Winkel der folgenden Linie
+        schwierig, es würds tun, checken ob der Mittelpunkt innerhalb is
+        oder: jeder punkt hat ja nur 2 linien weg, die haben einen winkel - der winkel der fraglichen muss innerhalb sein!
+

@@ -60,3 +60,46 @@ vorverarbeitung:
         nun mittelpunkte für alle fraglichen erzeugt, alles in ein file und dann mit einem rutsch mit osmconvert geht halbwegs schnell.
 
 
+okay nun das ganze automatisieren
+  osmconvert graz.osm.pbf -o=graz.osm.o5m
+  osmfilter in.osm --keep=" ( highway= and area=yes ) or ( highway= and type=multipolygon ) " --keep-node-tags="all blubb=" -o=filterout.o5m
+  osmfilter filterout.o5m  --drop-relations  -o=filterout-w_o_rel.o5m
+  osmfilter filterout-w_o_rel.o5m  --keep-ways="area=yes"  -o=filterout-areas.osm # (lässt floating nodes über, aber egal)
+  for i in grep "<way" filterout-areas.osm|cut -d'"' -f 2
+    osmfilter filterout-areas.osm --keep="@id=4399905"  -o=1.osm
+
+okay tut (für areas)
+  es gibt allerdings fehler:
+    Mariahilferstraße
+    Südtiroler Platz
+      OK waren dadurch bedingt, dass ich auch bei den segments die toleranz irrtümlicherweise dazugetan hab.
+
+wie für Multipolygone:
+  eigentlich exakt gleich...
+  alles was ein waysegment (egal ob inner oder outer) schneidet fliegt raus
+  rest wird mit osmconvert gecheckt, der kann ja auch inner/outer (hoffentlich...)
+  
+
+hm für Graz sind das 16.000 ways extra - machen das osrm-prepare aber MASSIV langsamer...
+merged 1667564 edges out of 3332836
+contractor finished initalization
+initializing elimination PQ ...ok (braucht mittellang)
+preprocessing 132072 nodes (braucht gefühlt ewig)
+  sogar die CPUs hängen sich auf...
+
+problem wird sein, dass contraction hierarchies wohl mit vielen gleichzeitigen verbindungen auf einer node net klarkommen...
+  wie reduzieren?
+  nur nodes berücksichtigen, die 
+    starke winkel haben?
+      nur wenn sie konvex in den innenraum hineinragen!
+    anschlusspunkte für andere ways sind
+      nur von anschlussstellen ausgehend nehmen!
+        ziel können anschlussstellen und konvexe sein
+    
+derzeit
+  sonnenfelsplatz 50 nodes, 508 ways
+    35 ways/node
+idealfall zum routing 24 nodes, 55 ways
+    max 8 ways/node
+    
+

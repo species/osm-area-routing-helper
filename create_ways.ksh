@@ -19,14 +19,15 @@
 if [ ! "$1" ] || [ ! "$2" ] || [ "$1" = "-h" ] || [ "$1" = " -help" ] || [ "$1" = "--help" ]
 then 
 cat <<EOH
-Usage: $0 [OPTIONS] infile.osm outfile.osm
+Usage: $0 [OPTIONS] infile.osm [-a] outfile.osm
 
 $0 is a program to create new (inner) ways for areas to enhance routing
 outputs OSM XML
 
 OPTIONS:
    -h -help --help     this help text
-   \$1 the input file: has to be OSM XML with only one way and all nodes (nodes must have no tags)
+   \$1 the input file:   has to be OSM XML with only one way and all nodes (nodes must have no tags)
+   [-a]                  Attach content of to output file instead of creating new one (take care youself for validity!)
    \$2 output file name
 
 EOH
@@ -38,7 +39,12 @@ fi
 ###
 
 infile="$1"
-outfile="$2"
+if [ "$2" == "-a" ]; then
+  attach=1
+  outfile="$3"
+else
+  outfile="$2"
+fi
 
 tmpdirname="poly-tmp"
 wayid=$(grep "way id=" "$infile" |cut -d'"' -f 2)
@@ -51,8 +57,13 @@ debugfile="debug-$wayid.osm"
 ### working part
 ###
 
-head -n -1 $infile > $outfile
-head -n 2 $infile > $debugfile
+echo "$0 wayid: $wayid"
+
+if [ ! "$attach" ]; then
+  head -n -1 "$infile" > "$outfile"
+fi
+
+#head -n 2 "$infile" > "$debugfile"
 
 waytags=$(grep "<tag k=\"" $infile|grep -v 'ag k="area" v="yes"')
 
@@ -100,14 +111,19 @@ for i in `seq 0 $(expr $len_segments - 1)`; do
   segments_B=( ${segments_B[@]} $B )
   segments_C=( ${segments_C[@]} $(( $A * $x1 + $B * $y1 )) )
   # minimal addition/subractions to not cross at endpoints
-  min_xs=( ${min_xs[@]} $(( ( ($x1 < $x2) ? x1 : x2 ) + 0.0000001 )) )
-  max_xs=( ${max_xs[@]} $(( ( ($x1 > $x2) ? x1 : x2 ) - 0.0000001 )) )
-  min_ys=( ${min_ys[@]} $(( ( ($y1 < $y2) ? y1 : y2 ) + 0.0000001 )) )
-  max_ys=( ${max_ys[@]} $(( ( ($y1 > $y2) ? y1 : y2 ) - 0.0000001 )) )
+  #min_xs=( ${min_xs[@]} $(( ( ($x1 < $x2) ? x1 : x2 ) + 0.0000001 )) )
+  #max_xs=( ${max_xs[@]} $(( ( ($x1 > $x2) ? x1 : x2 ) - 0.0000001 )) )
+  #min_ys=( ${min_ys[@]} $(( ( ($y1 < $y2) ? y1 : y2 ) + 0.0000001 )) )
+  #max_ys=( ${max_ys[@]} $(( ( ($y1 > $y2) ? y1 : y2 ) - 0.0000001 )) )
+  min_xs=( ${min_xs[@]} $(( ( ($x1 < $x2) ? x1 : x2 ) )) )
+  max_xs=( ${max_xs[@]} $(( ( ($x1 > $x2) ? x1 : x2 ) )) )
+  min_ys=( ${min_ys[@]} $(( ( ($y1 < $y2) ? y1 : y2 ) )) )
+  max_ys=( ${max_ys[@]} $(( ( ($y1 > $y2) ? y1 : y2 ) )) )
 done
-echo "segments_A: ${segments_A[@]}"
-echo "segments_B: ${segments_B[@]}"
-echo "segments_C: ${segments_C[@]}"
+#echo "segments_A: ${segments_A[@]}"
+#echo "segments_B: ${segments_B[@]}"
+#echo "segments_C: ${segments_C[@]}"
+echo "segments: ${#segments_C[@]}"
 
 new_node_counter=1000000000000
 for i_outer in `seq 0 $(expr $len - 4)`;do # outer loop. Start from 0, each node has n-3 connections, so with 0-start to 4
@@ -181,7 +197,7 @@ done
 echo "</osm>" >> $mnodesfile
 osmconvert $mnodesfile -B=$polyfile -o=$inodesfile
 
-wcount=1000000000000
+wcount=$((10000000000000000 + wayid*100000))
 while read -r line
 do
   nline=$(echo "$line" | grep 'node id=')
@@ -192,13 +208,15 @@ do
   node1=$(echo "$nline" | cut "-d!" -f 2 )
   node2=$(echo "$nline" | cut "-d!" -f 3 )
   
-  echo "  <way id=\"$wcount\" timestamp=\"2010-12-23T18:48:05Z\" changeset=\"1\" version=\"1\" uid=\"1\" user=\"polytrianguler\">" >> $outfile
-  echo "    <nd ref=\"$node1\"/>" >> $outfile
-  echo "    <nd ref=\"$node2\"/>" >> $outfile
-  echo "    $waytags" >> $outfile
-  echo "  </way>" >> $outfile
+  echo "  <way id=\"$wcount\" timestamp=\"2010-12-23T18:48:05Z\" changeset=\"1\" version=\"1\" uid=\"1\" user=\"polytrianguler\">" >> "$outfile"
+  echo "    <nd ref=\"$node1\"/>" >> "$outfile"
+  echo "    <nd ref=\"$node2\"/>" >> "$outfile"
+  echo "    $waytags" >> "$outfile"
+  echo "  </way>" >> "$outfile"
 
 done < "$inodesfile"
 
-echo "</osm>" >> $outfile
-echo "</osm>" >> $debugfile
+if [ ! "$attach" ]; then
+  echo "</osm>" >> "$outfile"
+fi
+#echo "</osm>" >> "$debugfile"

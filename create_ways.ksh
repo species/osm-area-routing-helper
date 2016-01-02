@@ -40,18 +40,23 @@ fi
 infile="$1"
 outfile="$2"
 
+tmpdirname="poly-tmp"
+wayid=$(grep "way id=" "$infile" |cut -d'"' -f 2)
+polyfile="$tmpdirname/w$wayid.poly"
+mnodesfile="$tmpdirname/w$wayid-middlenodes.osm"
+inodesfile="$tmpdirname/w$wayid-innernodes.osm"
+debugfile="debug-$wayid.osm"
 
 ###
 ### working part
 ###
 
 head -n -1 $infile > $outfile
-head -n 2 $infile > debug.osm
+head -n 2 $infile > $debugfile
 
 waytags=$(grep "<tag k=\"" $infile|grep -v 'ag k="area" v="yes"')
 
 nodes=$(grep "ref=" "$infile" |cut -d'"' -f 2)
-wayid=$(grep "way id=" "$infile" |cut -d'"' -f 2)
 node_array=($nodes)
 set -A lats
 set -A lons
@@ -70,11 +75,8 @@ echo "lons: ${lons[@]}"
 len=${#node_array[@]}
 echo "len: $len"
 
-tmpdirname="poly-tmp"
 mkdir -p $tmpdirname
-polyfile="$tmpdirname/w$wayid.poly"
 ./area2poly.sh $infile > $polyfile
-mnodesfile=$tmpdirname/nodes.osm
 head -n 2 $infile > $mnodesfile
 
 # pre-compute all line segments from way to calculate crossings later
@@ -155,7 +157,7 @@ for i_outer in `seq 0 $(expr $len - 4)`;do # outer loop. Start from 0, each node
 #      echo "x: $x, y: $y"
       #min(x1,x2) ≤ x ≤ max(x1,x2) 
       if (( ($min_x < $x) && ($x < $max_x) && ($min_y < $y) && ($y < $max_y) && (${min_xs[$i_segment]} < $x) && ($x < ${max_xs[$i_segment]}) && (${min_ys[$i_segment]} < $y) && ($y < ${max_ys[$i_segment]})  )); then
-#        echo "<node id=\"$i_outer$i_inner${i_segment}00\" lat=\"$y\" lon=\"$x\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> debug.osm
+#        echo "<node id=\"$i_outer$i_inner${i_segment}00\" lat=\"$y\" lon=\"$x\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> $debugfile
 #        echo "crossing found!"
         crossing=1
         break
@@ -170,14 +172,14 @@ for i_outer in `seq 0 $(expr $len - 4)`;do # outer loop. Start from 0, each node
       mlat=$(( (y1+y2)/2 ))
       echo "<node id=\"$(( ++new_node_counter ))\" lat=\"$mlat\" lon=\"$mlon\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"!${node_array[$i_outer]}!${node_array[$i_inner]}!\" />" >> $mnodesfile
 
-#      echo "<node id=\"$new_node_counter\" lat=\"$mlat\" lon=\"$mlon\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> debug.osm
+#      echo "<node id=\"$new_node_counter\" lat=\"$mlat\" lon=\"$mlon\" version=\"1\" timestamp=\"2010-12-22T16:09:27Z\" changeset=\"1\" uid=\"1\" user=\"Me\" />" >> $debugfile
     fi
 
   done
 done 
 
 echo "</osm>" >> $mnodesfile
-osmconvert $mnodesfile -B=$polyfile -o=$tmpdirname/innen.osm
+osmconvert $mnodesfile -B=$polyfile -o=$inodesfile
 
 wcount=1000000000000
 while read -r line
@@ -196,7 +198,7 @@ do
   echo "    $waytags" >> $outfile
   echo "  </way>" >> $outfile
 
-done < "$tmpdirname/innen.osm"
+done < "$inodesfile"
 
 echo "</osm>" >> $outfile
-echo "</osm>" >> debug.osm
+echo "</osm>" >> $debugfile
